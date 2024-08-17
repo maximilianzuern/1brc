@@ -15,7 +15,7 @@ def get_file_chunks(
     chunk_size = file_size // cpu_count
 
     start_end = list()
-    with open(file_name, "r+b") as f:
+    with open(file_name, encoding="utf-8", mode="r+b") as f:
 
         def is_new_line(position):
             if position == 0:
@@ -62,7 +62,7 @@ def _process_file_chunk(
 ) -> dict:
     """Process each file chunk in a different process"""
     result = dict()
-    with open(file_name, "rb") as f:
+    with open(file_name, encoding="utf-8", mode="rb") as f:
         f.seek(chunk_start)
         gc_disable()
         for line in f:
@@ -71,22 +71,22 @@ def _process_file_chunk(
                 break
             location, measurement = line.split(b";")
             measurement = float(measurement)
-            try:
-                _result = result[location]
+            _result = result.get(location)
+            if _result:
                 if measurement < _result[0]:
                     _result[0] = measurement
                 if measurement > _result[1]:
                     _result[1] = measurement
                 _result[2] += measurement
                 _result[3] += 1
-            except KeyError:
+            else:
                 result[location] = [
                     measurement,
                     measurement,
                     measurement,
                     1,
                 ]  # min, max, sum, count
-        
+
         gc_enable()
     return result
 
@@ -107,17 +107,16 @@ def process_file(
     result = dict()
     for chunk_result in chunk_results:
         for location, measurements in chunk_result.items():
-            if location not in result:
-                result[location] = measurements
-            else:
-                _result = result[location]
+            _result = result.get(location)
+            if _result:
                 if measurements[0] < _result[0]:
                     _result[0] = measurements[0]
                 if measurements[1] > _result[1]:
                     _result[1] = measurements[1]
                 _result[2] += measurements[2]
                 _result[3] += measurements[3]
-
+            else:
+                result[location] = measurements
     # Print final results
     print("{", end="")
     for location, measurements in sorted(result.items()):
